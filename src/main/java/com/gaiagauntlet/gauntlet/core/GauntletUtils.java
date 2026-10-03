@@ -7,6 +7,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 
 import com.gaiagauntlet.gauntlet.core.admin.AdminLog;
+import com.gaiagauntlet.gauntlet.core.admin.GaiaLog;
 import com.gaiagauntlet.gauntlet.core.components.PlayerComponent;
 import com.gaiagauntlet.gauntlet.core.config.GauntletConfig;
 import com.gaiagauntlet.gauntlet.core.resources.UniverseGauntletResource;
@@ -63,8 +64,7 @@ public class GauntletUtils {
             try {
                 future.complete(operation.get());
             } catch (Exception e) {
-                AdminLog.add("Failed to run wrapped function with error: "
-                        + e.getLocalizedMessage());
+                GaiaLog.atError(e).log("Failed to run wrapped function");
                 future.completeExceptionally(e);
             }
         };

@@ -131,11 +131,9 @@ public class SessionCommands extends AbstractCommandCollection {
                     .param("sessionId", session));
             GauntletEventRegistry.dispatch(
                     new NewSessionEvent(gameSession)
-                            .withMessages(ctx::sendMessage)
-                            .withCallback(message -> {
-                                ctx.sendMessage(message);
-                                ctx.sendMessage(msg("server.gg.commands.session.create.success")
-                                        .param("sessionId", session));
+                            .onMessage(msg -> ctx.sendMessage(msg.toMessage()))
+                            .onComplete(message -> {
+                                ctx.sendMessage(message.toMessage());
                             }));
         }
     }
@@ -157,11 +155,9 @@ public class SessionCommands extends AbstractCommandCollection {
                     .param("sessionId", targetSession));
             GauntletEventRegistry.dispatch(
                     new SessionEvent(SessionOperation.DELETE, targetSession)
-                            .withMessages(ctx::sendMessage)
-                            .withCallback(message -> {
-                                ctx.sendMessage(message);
-                                ctx.sendMessage(msg("server.gg.commands.session.destroy.success")
-                                        .param("sessionId", targetSession));
+                            .onMessage(msg -> ctx.sendMessage(msg.toMessage()))
+                            .onComplete(message -> {
+                                ctx.sendMessage(message.toMessage());
                             }));
 
         }
@@ -215,12 +211,9 @@ public class SessionCommands extends AbstractCommandCollection {
             var session = sessionId.get(ctx);
             GauntletEventRegistry.dispatch(
                     new SessionQueueEvent(SessionQueueOp.APPEND, session, List.of(game))
-                            .withMessages(ctx::sendMessage)
-                            .withCallback(message -> {
-                                ctx.sendMessage(message);
-                                ctx.sendMessage(msg("server.gg.commands.session.add.success")
-                                        .param("sessionId", session)
-                                        .param("gameId", game));
+                            .onMessage(msg -> ctx.sendMessage(msg.toMessage()))
+                            .onComplete(message -> {
+                                ctx.sendMessage(message.toMessage());
                             }));
 
         }
@@ -242,12 +235,8 @@ public class SessionCommands extends AbstractCommandCollection {
             var game = gameId.get(ctx);
             var session = sessionId.get(ctx);
             GauntletEventRegistry.dispatch(new SessionQueueEvent(SessionQueueOp.REMOVE, session, List.of(game))
-                    .withMessages(ctx::sendMessage).withCallback(message -> {
-                        ctx.sendMessage(message);
-                        ctx.sendMessage(msg("server.gg.commands.session.remove.success")
-                                .param("sessionId", session)
-                                .param("status", "Successfully")
-                                .param("gameId", game));
+                    .onMessage(msg -> ctx.sendMessage(msg.toMessage())).onComplete(message -> {
+                        ctx.sendMessage(message.toMessage());
                     }));
 
         }
@@ -268,11 +257,8 @@ public class SessionCommands extends AbstractCommandCollection {
                     .param("sessionId", targetSession));
 
             GauntletEventRegistry.dispatch(new SessionEvent(SessionOperation.SETUP, targetSession)
-                    .withMessages(ctx::sendMessage).withCallback(message -> {
-                        ctx.sendMessage(message);
-                        ctx.sendMessage(msg("server.gg.commands.session.setup.success")
-                                .param("sessionId", targetSession)
-                                .param("gameId", "<id unavailable>"));
+                    .onMessage(msg -> ctx.sendMessage(msg.toMessage())).onComplete(message -> {
+                        ctx.sendMessage(message.toMessage());
                     }));
         }
     }
@@ -288,14 +274,12 @@ public class SessionCommands extends AbstractCommandCollection {
         @Override
         protected void execute(CommandContext ctx, World arg1, Store<EntityStore> accessor) {
             var targetSession = sessionId.get(ctx);
-            ctx.sendMessage(error("Cleaning games not yet supported!"));
+            ctx.sendMessage(msg("server.gg.commands.session.cleanup.pending")
+                    .param("sessionId", targetSession));
 
             GauntletEventRegistry.dispatch(new SessionEvent(SessionOperation.CLEAN, targetSession)
-                    .withMessages(ctx::sendMessage).withCallback(message -> {
-                        ctx.sendMessage(message);
-                        ctx.sendMessage(msg("server.gg.commands.session.setup.success")
-                                .param("sessionId", targetSession)
-                                .param("gameId", "<id unavailable>"));
+                    .onMessage(msg -> ctx.sendMessage(msg.toMessage())).onComplete(message -> {
+                        ctx.sendMessage(message.toMessage());
                     }));
         }
     }

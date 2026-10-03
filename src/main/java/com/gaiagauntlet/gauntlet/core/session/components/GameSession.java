@@ -17,8 +17,11 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 
 import com.gaiagauntlet.gauntlet.core.admin.AdminLog;
+import com.gaiagauntlet.gauntlet.core.admin.GaiaLog;
+import com.gaiagauntlet.gauntlet.core.admin.GaiaLog;
 import com.gaiagauntlet.gauntlet.core.session.constants.SessionState;
 import com.gaiagauntlet.gauntlet.core.session.registry.SessionRegistry;
+import com.gaiagauntlet.gauntlet.plugins.announcer.utils.MessageUtils;
 import com.gaiagauntlet.gauntlet.utils.codec.StringRegistryCodec;
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -120,19 +123,32 @@ public class GameSession {
 
     private boolean transitionBlocked(SessionState state, @Nullable String gameIdCheck) {
         if (gameIdCheck != null && !gameIdCheck.equals(currentGame)) {
-            AdminLog.add(gameIdCheck,
-                    "Game " + gameIdCheck + " in " + getId() + " failed to switch to " + state.toString() + "! Game "
+            error().log("Game " + gameIdCheck + " in " + getId() + " failed to switch to " + state.toString() + "! Game "
                             + currentGame
                             + " was somehow registered instead");
             return true;
         }
 
-        if (sessionState.to(state))
+        if (sessionState.to(state)) {
+            logger().log(MessageUtils.msg("server.gauntlet.session.transition.success")
+                .param("sessionId", this.id)
+                .param("newState", state.toString())
+                .param("oldState", sessionState.toString())
+            );
             return false; // transition allowed, not blocked
-        AdminLog.add(gameIdCheck == null ? AdminLog.GLOBAL : gameIdCheck,
-                "Game failed to switch to " + state.toString() + "! State is " + sessionState
+        }
+
+        error().log("Game failed to switch to " + state.toString() + "! State is " + sessionState.toString()
                         + " instead!");
+        
         return true;
+    }
+
+    private GaiaLog logger() {
+        return GaiaLog.atInfo().withSession(this);
+    }
+    private GaiaLog error() {
+        return GaiaLog.atError().withSession(this);
     }
 
     /**

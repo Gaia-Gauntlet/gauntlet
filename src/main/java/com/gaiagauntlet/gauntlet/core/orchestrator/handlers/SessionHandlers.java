@@ -4,6 +4,7 @@ import static com.gaiagauntlet.gauntlet.plugins.announcer.utils.MessageUtils.msg
 
 import com.gaiagauntlet.gauntlet.core.GauntletUtils;
 import com.gaiagauntlet.gauntlet.core.admin.AdminLog;
+import com.gaiagauntlet.gauntlet.core.admin.GaiaLog;
 import com.gaiagauntlet.gauntlet.core.events.GauntletEvent;
 import com.gaiagauntlet.gauntlet.core.events.events.NewSessionEvent;
 import com.gaiagauntlet.gauntlet.core.events.events.SessionEvent;
@@ -26,7 +27,7 @@ public class SessionHandlers extends HandlerUtils {
 
             for (var game : gameSession.getGameSequence()) {
                 if (!GameRegistry.hasGame(game)) {
-                    sessionEvt.Error("Game " + game + " is not registered!");
+                    Resolve.error(sessionEvt, gameSession, "session.generic.missing.game");
                     continue;
                 }
                 gameSession.addGame(game);
@@ -35,20 +36,19 @@ public class SessionHandlers extends HandlerUtils {
 
         var success = withResource().addSession(gameSession);
         if (success) {
-            sessionEvt
-                    .Message(msg("server.gg.commands.session.create.success").param("sessionId", gameSession.getId()));
+            sessionEvt.complete(GaiaLog.atInfo().withSession(gameSession).log(
+                    msg("server.gg.commands.session.create.success").param("sessionId", gameSession.getId())));
         } else {
-            sessionEvt.Error("Unable to add session! It already exists");
+            sessionEvt.complete(GaiaLog.atWarning().log("Unable to add session! It already exists"));
         }
-        sessionEvt.complete();
     }
 
     public static void handleSession(World hub, SessionEvent sessionEvt) {
         var sessionOp = sessionFor(sessionEvt.getSessionId());
 
         if (!sessionOp.isPresent()) {
-            sessionEvt.Error("Session " + sessionEvt.getSessionId() + " is not present");
-            sessionEvt.complete();
+            sessionEvt.complete(GaiaLog.atError().withSession(sessionEvt.getSessionId())
+                    .log("Session " + sessionEvt.getSessionId() + " is not present"));
             return;
         }
         var session = sessionOp.get();
@@ -71,17 +71,20 @@ public class SessionHandlers extends HandlerUtils {
 
     private static void setupGame(World hub, SessionEvent sessionEvt, GameSession session) {
         if (!session.available()) {
-            sessionEvt.Error("Session is in state " + session.getSessionState().toString()
-                    + " and is not available for setting up a new game");
-            sessionEvt.complete();
+            sessionEvt.complete(GaiaLog.atError().withSession(session)
+                    .log(MessageUtils.msg("server.gg.events.session.error.unavailable")
+                            .param("sessionState", session.getSessionState().toString())
+                            .param("sessionId", session.getId())
+                            .param("action", "being set up")));
             return;
         }
 
         var nextGameId = session.getNext();
 
         if (!(GameRegistry.getGame(nextGameId).orElse(null) instanceof GameController game)) {
-            sessionEvt.Error("No pending game");
-            sessionEvt.complete();
+            sessionEvt.complete(GaiaLog.atError().withSession(session)
+                    .log(MessageUtils.msg("server.gg.events.session.error.unavailable")
+                            .param("sessionId", session.getId())));
             return;
         }
 
@@ -92,11 +95,13 @@ public class SessionHandlers extends HandlerUtils {
         future.whenComplete((value, error) -> {
             if (error != null) {
                 // errored
-                AdminLog.add("Starting game " + nextGameId + " for session " + session.getId()
-                        + " failed to setup with exception: " + error.getLocalizedMessage());
-                sessionEvt.Error("Game threw an error during setup! Check logs");
+                GaiaLog.atError().withSession(session).withCause(error)
+                        .log(MessageUtils.msg("server.gg.events.session.setup.error")
+                                .param("sessionId", session.getId())
+                                .param("gameId", nextGameId)
+                                .param("reason", error.getLocalizedMessage()));
 
-                session.setErrored("Error thrown when setting up");
+                session.setErrored("Error thrown during setup");
                 // cancel the game immediately - run on the hub thread
                 GauntletUtils.run(hub, () -> cleanGame(hub, sessionEvt, session));
                 return;
@@ -105,16 +110,20 @@ public class SessionHandlers extends HandlerUtils {
             var check = session.setRunning(nextGameId);
             if (!check) {
                 // something has gone horribly wrong
-                AdminLog.add("Session " + session.getId() + " in a weird state when starting " + nextGameId
-                        + "! Defensively clearing world before things get too bad. Check admin log for details");
-                sessionEvt.Error("Game did not setup correctly");
+                GaiaLog.atError().withSession(session)
+                        .log(MessageUtils.msg("server.gg.events.session.setup.invalid")
+                                .param("sessionId", session.getId())
+                                .param("gameId", nextGameId));
 
                 session.setErrored("Game was in a weird state when starting (session state mismatch)");
                 // cancel the game immediately - run on the hub thread
                 GauntletUtils.run(hub, () -> cleanGame(hub, sessionEvt, session));
                 return;
             }
-            sessionEvt.complete();
+            sessionEvt.complete(GaiaLog.atInfo().withSession(session)
+                    .log(MessageUtils.msg("server.gg.events.session.setup.success")
+                            .param("sessionId", session.getId())
+                            .param("gameId", nextGameId)));
         });
     }
 
@@ -123,14 +132,19 @@ public class SessionHandlers extends HandlerUtils {
         var isCleaning = session.setCleaning(currentGame);
 
         if (!isCleaning) {
-            sessionEvt.complete(Message.raw("Already cleaning!"));
+            sessionEvt.complete(GaiaLog.atError().withSession(session)
+                    .log(MessageUtils.msg("server.gg.events.session.error.unavailable")
+                            .param("sessionState", session.getSessionState().toString())
+                            .param("sessionId", session.getId())
+                            .param("action", "cleaning. Already getting cleaned up!")));
             return;
         }
 
         if (!(GameRegistry.getGame(currentGame).orElse(null) instanceof GameController game)) {
-            sessionEvt.Error("No pending game");
             session.setErrored("No current game is available to cancel");
-            sessionEvt.complete();
+            sessionEvt.complete(GaiaLog.atError().withSession(session)
+                    .log(MessageUtils.msg("server.gg.events.session.error.unavailable")
+                            .param("sessionId", session.getId())));
             return;
         }
 
@@ -138,14 +152,24 @@ public class SessionHandlers extends HandlerUtils {
         var future = game.cleanGame(hub, session);
         future.whenComplete((value, error) -> {
             if (error != null) {
-                AdminLog.add("Cancelling game " + currentGame + " for session " + session.getId()
-                        + " failed! Error: " + error.getLocalizedMessage());
-                sessionEvt.Error("Game threw an error while being cancelled! Check logs");
+                GaiaLog.atError().withSession(session).withCause(error)
+                        .log(MessageUtils.msg("server.gg.events.session.setup.error")
+                                .param("sessionId", session.getId())
+                                .param("gameId", currentGame)
+                                .param("reason", error.getLocalizedMessage()));
                 session.setErrored("Error thrown when cancelling");
             } else {
-                session.setComplete(currentGame);
+                var success = session.setComplete(currentGame);
+                if (!success) {
+                    sessionEvt.complete(GaiaLog.atError().withSession(session)
+                            .log(MessageUtils.msg("server.gg.events.session.error.unavailable")
+                                    .param("sessionState", session.getSessionState().toString())
+                                    .param("sessionId", session.getId())
+                                    .param("action", "completing")));
+                    return;
+                }
             }
-            sessionEvt.complete();
+            Resolve.success(sessionEvt, session, "server.gg.events.session.clean.success");
         });
     }
 
@@ -161,13 +185,14 @@ public class SessionHandlers extends HandlerUtils {
 
         var resource = withResource();
         resource.removeSession(session);
-        sessionEvt.complete(Message.raw("Destroyed " + session.getId()));
+        Resolve.success(sessionEvt, session, "server.gg.events.session.destroy.success");
     }
 
     public static void handleSessionQueue(World hub, SessionQueueEvent sessionEvt) {
         if (!(sessionFor(sessionEvt.getSessionId()).orElse(null) instanceof GameSession session)) {
-            sessionEvt.Error("Session " + sessionEvt.getSessionId() + " is not present");
-            sessionEvt.complete();
+            Resolve.error(sessionEvt, MessageUtils.msg("server.gg.events.session.missing").param("sessionId",
+                    sessionEvt.getSessionId()));
+
             return;
         }
 
@@ -179,30 +204,39 @@ public class SessionHandlers extends HandlerUtils {
             for (var game : gameQueue) {
                 if (!GameRegistry.hasGame(game)) {
                     // validation failed
-                    sessionEvt.complete(
-                            MessageUtils
-                                    .error("Game " + game + " is not a valid, registered game! Cancelling operation"));
+                    Resolve.error(sessionEvt, session, "server.gg.events.session.generic.missing.game");
                     return;
                 }
             }
         }
 
+        if (gameQueue.size() == 0) {
+            Resolve.error(sessionEvt, session, "server.gg.events.game.queue.missing");
+            return;
+        }
+
         switch (op) {
             case SET -> {
                 session.setGames(gameQueue);
-                sessionEvt.complete();
+                Resolve.success(sessionEvt, session, MessageUtils.msg("server.gg.events.session.game.success")
+                        .param("action", "set the games list"));
                 return;
             }
             case REMOVE -> {
+                var removed = 0;
                 for (var game : gameQueue) {
-                    session.removeGame(game);
+                    var success = session.removeGame(game);
+                    if (success) removed++;
                 }
-                sessionEvt.complete();
+                Resolve.success(sessionEvt, session, MessageUtils.msg("server.gg.events.session.game.removal.success")
+                        .param("games", removed)
+                    );
                 return;
             }
             case APPEND -> {
                 session.addGames(gameQueue);
-                sessionEvt.complete();
+                Resolve.success(sessionEvt, session, MessageUtils.msg("server.gg.events.session.game.success")
+                        .param("action", "appended " + gameQueue.size() + " game(s)"));
             }
         }
     }

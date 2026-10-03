@@ -1,1 +1,2 @@
 editor.button=Convert Usernames
+session.transition.success=Transitioning {sessionId} to {newState} from {oldState}

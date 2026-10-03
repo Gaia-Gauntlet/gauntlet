@@ -1,6 +1,5 @@
 package com.gaiagauntlet.gauntlet.core.admin;
 
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
@@ -19,32 +18,21 @@ import com.hypixel.hytale.logger.HytaleLogger;
  */
 public final class AdminLog {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
+
     // global logs
     public static final String GLOBAL = "Global";
     private static final int CAPACITY = 300;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss")
             .withZone(ZoneId.systemDefault());
-    private static final ArrayDeque<Line> LINES = new ArrayDeque<>();
-
-    /** One entry. The game id is empty for server-wide lines. */
-    public record Line(long millis, @Nonnull String gameId, @Nonnull String text) {
-        @Nonnull
-        public String render() {
-            return TIME.format(Instant.ofEpochMilli(millis)) + (gameId.isEmpty() ? " " : " [" + gameId + "] ") + text;
-        }
-    }
+    private static final ArrayDeque<GaiaLog> LINES = new ArrayDeque<>();
 
     private AdminLog() {
     }
 
-    public static void add(@Nonnull String text) {
-        add(GLOBAL, text);
-    }
-
-    public static void add(@Nonnull String gameId, @Nonnull String text) {
-        LOGGER.atInfo().log(gameId + " " + text);
+    public static void add(GaiaLog line) {
+        // add to the lines for later reference
         synchronized (LINES) {
-            LINES.addLast(new Line(System.currentTimeMillis(), gameId, text));
+            LINES.addLast(line);
             while (LINES.size() > CAPACITY) {
                 LINES.removeFirst();
             }
@@ -53,15 +41,16 @@ public final class AdminLog {
 
     /** The newest lines first: the game's own plus server-wide ones. */
     @Nonnull
-    public static List<Line> recent(@Nullable GameSession session, int limit) {
-        var out = new ArrayList<Line>();
-        if (Objects.isNull(session)) return out;
+    public static List<GaiaLog> recent(@Nullable GameSession session, int limit) {
+        var out = new ArrayList<GaiaLog>();
+        if (Objects.isNull(session))
+            return out;
 
         synchronized (LINES) {
             var it = LINES.descendingIterator();
             while (it.hasNext() && out.size() < limit) {
                 var line = it.next();
-                if (line.gameId().isEmpty() || line.gameId().equals(session.getCurrentGame())) {
+                if (line.getSessionId() == GLOBAL || line.getSessionId().isEmpty() || line.getSessionId().equals(session.getId())) {
                     out.add(line);
                 }
             }

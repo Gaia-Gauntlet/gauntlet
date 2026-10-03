@@ -25,6 +25,8 @@ session.start.success=<color is="#4af700">Started {gameId} in {sessionId}</color
 session.stop.pending=<color is="#f7d600">Stopping {sessionId}</color>
 session.stop.success=<color is="#4af700">Stopped {gameId} in {sessionId}</color>
 
+session.cleanup.pending=<color is="#f7d600">Cleaning up game in {sessionId}...</color>
+
 # ==================== Party ====================
 party.invalidname = <b><color is="#ed7f77">{party}</color></b> is not a valid party name!
 

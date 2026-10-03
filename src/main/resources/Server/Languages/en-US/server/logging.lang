@@ -1,0 +1,5 @@
+info=<color is="#FFFFFF">{message}</color>
+debug=<color is="#808080">{message}</color>
+error=<color is="#FF0000">{message}</color>
+severe=<color is="#8B0000">{message}</color>
+warning=<color is="#FFA500">{message}</color>

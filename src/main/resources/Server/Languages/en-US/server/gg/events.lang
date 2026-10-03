@@ -1,3 +1,28 @@
-session.setup.success=success!
+success=<color is="#06f906">Completed {event} - {message}</color>
+
+# Generic Events
+session.missing=Session <b>{sessionId}</b> is not present!
 
 
+# Game Events
+game.deferral.error=Failed to finalize deferred tasks for {sessionId} when closing {gameId}
+game.deferral.success=<color is="#06f906">Finalized game end in {sessionId} for game {gameId}</success>
+game.end.ended=Game {gameId} in {sessionId} already ended 
+game.end.success=Ended game {gameId} in {sessionId} 
+game.queue.missing=No games to remove!
+
+# Session Events
+session.generic.missing.game=Game {gameId} not registered
+session.error.unavailable=Session {sessionId} is in state {sessionState} and is not available for {action}
+session.error.notpending=Session {sessionId} has no pending game
+session.setup.error=Starting game {gameId} for session {sessionId} failed with reason {reason}
+session.setup.invalid=Session {sessionId} in a weird start during starting {gameId}! Incorrect game registered! Cleaning game {gameId}
+session.setup.success=<color is="#00FF00">Successfully setup {gameId} for {sessionId}</color>
+
+session.clean.success=<color is="#00FF00">Successfully cleaned {gameId} for {sessionId}</color>
+session.clean.error=Cancelling game {gameId} for session {sessionId} failed with reason {reason}
+
+session.destroy.success=<color is="#06f906">Deleted session {sessionId}</color>
+
+session.game.success=<color is="#06f906">Successfully {action} in {sessionId}</color>
+session.game.removal.success=<color is="#06f906">Successfully removed {games} game(s) from {sessionId}</color>

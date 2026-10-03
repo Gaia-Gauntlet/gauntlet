@@ -26,5 +26,4 @@ public class EZLobbyManager implements LobbyManager {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'playersTo'");
     }
-    
 }

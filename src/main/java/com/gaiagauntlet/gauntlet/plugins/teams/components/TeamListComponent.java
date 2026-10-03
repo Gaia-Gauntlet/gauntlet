@@ -10,6 +10,7 @@ import javax.annotation.Nullable;
 import com.hypixel.hytale.codec.Codec;
 import org.jetbrains.annotations.NotNull;
 import com.gaiagauntlet.gauntlet.core.admin.AdminLog;
+import com.gaiagauntlet.gauntlet.core.admin.GaiaLog;
 import com.gaiagauntlet.gauntlet.core.session.components.SessionComponent;
 import com.gaiagauntlet.gauntlet.core.session.components.SessionComponentType;
 import com.gaiagauntlet.gauntlet.plugins.gamestore.components.GameComponent;
@@ -23,56 +24,65 @@ import lombok.Getter;
 import lombok.Setter;
 
 public final class TeamListComponent implements SessionComponent, GameComponent {
-    @Nonnull public static final String ID = "TeamListComponent";
+    @Nonnull
+    public static final String ID = "TeamListComponent";
 
-    @Getter @Setter private static GameComponentType<TeamListComponent> gameComponentType;
-    @Getter @Setter private static SessionComponentType<TeamListComponent> sessionComponentType;
+    @Getter
+    @Setter
+    private static GameComponentType<TeamListComponent> gameComponentType;
+    @Getter
+    @Setter
+    private static SessionComponentType<TeamListComponent> sessionComponentType;
 
     public static final BuilderCodec<@NotNull TeamListComponent> CODEC = AssetBuilderCodec
-        .builder(
-            TeamListComponent.class,
-            TeamListComponent::new)
-        .append(new KeyedCodec<>("TeamList", new MapCodec<>(TeamComponent.CODEC, ConcurrentHashMap::new)),
-            (team, v) -> team.teamList = v,
-            team -> team.teamList)
-        .documentation("The full list of teams in this session.")
-        .add()
-        .append(new KeyedCodec<>("TeamSize", Codec.INTEGER),
-            TeamListComponent::setTeamSize, TeamListComponent::getTeamSize
-        )
-        .documentation("Whether team distribution should respect player defined parties.")
-        .add()
-        .append(new KeyedCodec<>("RespectParties", Codec.BOOLEAN),
-            TeamListComponent::setRespectParties, TeamListComponent::isRespectParties
-        )
-        .documentation("Whether team distribution should respect player defined parties.")
-        .add()
-        .afterDecode((teams) -> {
+            .builder(
+                    TeamListComponent.class,
+                    TeamListComponent::new)
+            .append(new KeyedCodec<>("TeamList", new MapCodec<>(TeamComponent.CODEC, ConcurrentHashMap::new)),
+                    (team, v) -> team.teamList = v,
+                    team -> team.teamList)
+            .documentation("The full list of teams in this session.")
+            .add()
+            .append(new KeyedCodec<>("TeamSize", Codec.INTEGER),
+                    TeamListComponent::setTeamSize, TeamListComponent::getTeamSize)
+            .documentation("Whether team distribution should respect player defined parties.")
+            .add()
+            .append(new KeyedCodec<>("RespectParties", Codec.BOOLEAN),
+                    TeamListComponent::setRespectParties, TeamListComponent::isRespectParties)
+            .documentation("Whether team distribution should respect player defined parties.")
+            .add()
+            .afterDecode((teams) -> {
 
-            // wipe the map before rebuilding it
-            teams.playerToTeam.clear();
+                // wipe the map before rebuilding it
+                teams.playerToTeam.clear();
 
-            // iterate over every player of every team
-            for (var teamEntry : teams.getTeams().entrySet()) {
-                for (var player : teamEntry.getValue().getPlayers()) {
-                    // Resynchronizes the teams
-                    var prev = teams.playerToTeam.put(player, teamEntry.getKey());
-                    if (prev != null) {
-                        // the player is on two teams - whoops - not much to be done about that though
-                        // other than cry
-                        AdminLog.add("Player " + PlayerUtils.resolveOnline(player) + " is on both team " + prev
-                            + " and team " + teamEntry.getKey());
-                        teams.remove(player, prev);
+                // iterate over every player of every team
+                for (var teamEntry : teams.getTeams().entrySet()) {
+                    for (var player : teamEntry.getValue().getPlayers()) {
+                        // Resynchronizes the teams
+                        var prev = teams.playerToTeam.put(player, teamEntry.getKey());
+                        if (prev != null) {
+                            // the player is on two teams - whoops - not much to be done about that though
+                            // other than cry
+                            GaiaLog.atWarning()
+                                    .log("Player " + PlayerUtils.resolveOnline(player) + " is on both team " + prev
+                                            + " and team " + teamEntry.getKey());
+                            teams.remove(player, prev);
+                        }
                     }
                 }
-            }
-        })
-        .build();
+            })
+            .build();
 
-    @Nonnull private Map<String, TeamComponent> teamList = new ConcurrentHashMap<>();
+    @Nonnull
+    private Map<String, TeamComponent> teamList = new ConcurrentHashMap<>();
     private final Map<UUID, String> playerToTeam = new ConcurrentHashMap<>();
-    @Setter @Getter private int teamSize;
-    @Setter @Getter private boolean respectParties;
+    @Setter
+    @Getter
+    private int teamSize;
+    @Setter
+    @Getter
+    private boolean respectParties;
 
     public Map<String, TeamComponent> getTeams() {
         return teamList;

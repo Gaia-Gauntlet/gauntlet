@@ -33,7 +33,7 @@ public final class LogTab implements AdminTab {
     public void render(@Nonnull UICommandBuilder cmd, @Nonnull UIEventBuilder evt, @Nullable GameSession session) {
         var rows = new ArrayList<String>();
         for (var line : AdminLog.recent(session, LINES)) {
-            rows.add(line.render());
+            rows.add(line.toString());
         }
         Widgets.fillList(cmd, "LogList", rows, "Nothing logged yet");
     }
